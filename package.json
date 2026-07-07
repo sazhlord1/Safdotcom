@@ -1,0 +1,21 @@
+{
+  "name": "microwave-queue",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telegram Mini App for managing a shared microwave queue",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "db:migrate": "cd server && npx prisma migrate dev",
+    "db:seed": "cd server && npx ts-node src/seed.ts",
+    "db:reset": "cd server && npx prisma migrate reset --force"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: microwave-db
+    environment:
+      POSTGRES_DB: microwave_queue
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build: ./server
+    container_name: microwave-server
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/microwave_queue
+      BOT_TOKEN: ${BOT_TOKEN}
+      JWT_SECRET: ${JWT_SECRET}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+      PORT: 3001
+      QUEUE_START_HOUR: 12
+      QUEUE_START_MINUTE: 0
+      QUEUE_END_HOUR: 12
+      QUEUE_END_MINUTE: 45
+      FOOD_HEAT_MINUTES: 3
+
+volumes:
+  pgdata:

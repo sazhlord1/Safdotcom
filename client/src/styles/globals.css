@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "AnjomanMaxA";
+  src: url("/fonts/AnjomanMaxA-Regular.woff2") format("woff2"),
+       url("/fonts/AnjomanMaxA-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --tg-theme-bg-color: #ffffff;
+    --tg-theme-text-color: #000000;
+    --tg-theme-hint-color: #999999;
+    --tg-theme-link-color: #2481cc;
+    --tg-theme-button-color: #2481cc;
+    --tg-theme-button-text-color: #ffffff;
+    --tg-theme-secondary-bg-color: #f0f0f0;
+    --tg-theme-header-bg-color: #ffffff;
+    --tg-theme-accent-text-color: #2481cc;
+    --tg-theme-section-bg-color: #ffffff;
+    --tg-theme-section-header-text-color: #000000;
+    --tg-theme-subtitle-text-color: #666666;
+    --tg-theme-destructive-text-color: #e53935;
+    --tg-viewport-height: 100vh;
+    --tg-viewport-stable-height: 100vh;
+  }
+
+  html {
+    font-family: "AnjomanMaxA", "Tahoma", "Arial", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    overscroll-behavior: none;
+    background-color: var(--tg-theme-bg-color);
+    color: var(--tg-theme-text-color);
+    transition: background-color 0.3s, color 0.3s;
+  }
+}
+
+@layer components {
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .glass-card {
+    @apply rounded-2xl p-4 backdrop-blur-sm;
+    background: color-mix(in srgb, var(--tg-theme-section-bg-color) 85%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color) 15%, transparent);
+  }
+
+  .btn-primary {
+    @apply w-full py-3 px-6 rounded-xl font-semibold text-base transition-all duration-200 active:scale-95;
+    background-color: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+  }
+
+  .btn-danger {
+    @apply w-full py-3 px-6 rounded-xl font-semibold text-base transition-all duration-200 active:scale-95;
+    background-color: var(--tg-theme-destructive-text-color);
+    color: #ffffff;
+  }
+
+  .btn-secondary {
+    @apply w-full py-3 px-6 rounded-xl font-semibold text-base transition-all duration-200 active:scale-95;
+    background: color-mix(in srgb, var(--tg-theme-secondary-bg-color) 100%, transparent);
+    color: var(--tg-theme-text-color);
+  }
+
+  .stat-card {
+    @apply rounded-xl p-3 text-center;
+    background: color-mix(in srgb, var(--tg-theme-secondary-bg-color) 100%, transparent);
+  }
+
+  .queue-item-active {
+    @apply ring-2 ring-orange-400 shadow-lg;
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--tg-theme-hint-color);
+  border-radius: 2px;
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0.2s;
+  transition-timing-function: ease-in-out;
+}

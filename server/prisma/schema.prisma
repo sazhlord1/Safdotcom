@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum QueueStatus {
+  WAITING
+  ACTIVE
+  COMPLETED
+  LEFT
+}
+
+enum SwapStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum SwapRequestStatus {
+  PENDING
+  APPROVED
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id          Int       @id @default(autoincrement())
+  telegramId  BigInt     @unique
+  firstName   String
+  lastName    String?
+  username    String?
+  photoUrl    String?
+  isAdmin     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  queueEntries QueueEntry[]
+  swapRequests SwapRequest[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model QueueEntry {
+  id          Int         @id @default(autoincrement())
+  queueDate   DateTime    @db.Date
+  position    Int
+  microwaveId Int
+  status      QueueStatus @default(WAITING)
+  joinedAt    DateTime    @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  swapOffers SwapOffer[]
+
+  @@unique([queueDate, position, microwaveId])
+  @@index([queueDate, status])
+  @@index([queueDate, microwaveId])
+  @@map("queue_entries")
+}
+
+model SwapOffer {
+  id          Int        @id @default(autoincrement())
+  message     String
+  status      SwapStatus @default(PENDING)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  queueEntryId Int
+  queueEntry   QueueEntry @relation(fields: [queueEntryId], references: [id], onDelete: Cascade)
+
+  requests SwapRequest[]
+
+  @@map("swap_offers")
+}
+
+model SwapRequest {
+  id        Int               @id @default(autoincrement())
+  status    SwapRequestStatus @default(PENDING)
+  message   String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  swapOfferId Int
+  swapOffer   SwapOffer @relation(fields: [swapOfferId], references: [id], onDelete: Cascade)
+
+  requesterId Int
+  requester   User @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@unique([swapOfferId, requesterId])
+  @@map("swap_requests")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
