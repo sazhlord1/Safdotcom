@@ -31,7 +31,7 @@ router.get("/today", authMiddleware, async (req: AuthenticatedRequest, res) => {
     );
 
     const myEntry = queueState.queue.find(
-      (e) => Number(e.user.telegramId) === req.user!.telegramId
+      (e) => Number(e.user.telegramId) === req.user!.telegramId && e.status === "WAITING"
     );
 
     res.json(
