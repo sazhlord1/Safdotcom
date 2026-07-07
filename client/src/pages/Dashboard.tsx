@@ -117,7 +117,7 @@ export function Dashboard({ token, currentUserId }: DashboardProps) {
       showToast(result.error, "error");
     } else {
       showToast(
-        accepted ? "معاوضه با موفقیت انجام شد!" : "معاوضه رد شد",
+        accepted ? "جای شما در صف تغییر کرد!" : "معاوضه رد شد",
         accepted ? "success" : "info"
       );
     }

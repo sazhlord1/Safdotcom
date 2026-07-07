@@ -231,26 +231,18 @@ export class QueueService {
       where: {
         queueDate,
         microwaveId,
-        status: {
-          in: ["WAITING", "ACTIVE"],
-        },
       },
       orderBy: {
         position: "asc",
       },
     });
 
-    // Use sentinel positions (original + 10000) to avoid unique constraint collisions
-    // during the transaction, then assign final sequential positions.
-    const updates = entries.map((entry, i) => {
-      const needsUpdate = entry.position !== i;
-      return {
-        id: entry.id,
-        sentinelPos: entry.position + 10000,
-        finalPos: i,
-        needsUpdate,
-      };
-    });
+    const updates = entries.map((entry, i) => ({
+      id: entry.id,
+      sentinelPos: entry.position + 10000,
+      finalPos: i,
+      needsUpdate: entry.position !== i,
+    }));
 
     const toUpdate = updates.filter((u) => u.needsUpdate);
     if (toUpdate.length === 0) return;
@@ -276,60 +268,52 @@ export class QueueService {
 
   static async swapPositions(entryId1: number, entryId2: number) {
     const entry1 = await prisma.queueEntry.findUnique({
-      where: {
-        id: entryId1,
-      },
+      where: { id: entryId1 },
     });
 
     const entry2 = await prisma.queueEntry.findUnique({
-      where: {
-        id: entryId2,
-      },
+      where: { id: entryId2 },
     });
 
     if (!entry1 || !entry2) {
-      return {
-        error: "یکی از ورودی‌ها یافت نشد",
-      };
+      return { error: "یکی از ورودی‌ها یافت نشد" };
     }
 
     if (entry1.microwaveId !== entry2.microwaveId) {
-      return {
-        error: "امکان جابجایی بین مایکرویوها وجود ندارد",
-      };
+      return { error: "امکان جابجایی بین مایکرویوها وجود ندارد" };
     }
 
-    if (
-      entry1.status !== "WAITING" ||
-      entry2.status !== "WAITING"
-    ) {
-      return {
-        error: "فقط کاربران در حال انتظار قابل جابجایی هستند",
-      };
+    if (entry1.status !== "WAITING" || entry2.status !== "WAITING") {
+      return { error: "فقط کاربران در حال انتظار قابل جابجایی هستند" };
     }
+
+    // Move both to sentinel positions first, then to final positions
+    const temp1 = 50000 + entry1.id;
+    const temp2 = 50000 + entry2.id;
 
     await prisma.$transaction([
       prisma.queueEntry.update({
-        where: {
-          id: entry1.id,
-        },
-        data: {
-          position: entry2.position,
-        },
+        where: { id: entry1.id },
+        data: { position: temp1 },
       }),
       prisma.queueEntry.update({
-        where: {
-          id: entry2.id,
-        },
-        data: {
-          position: entry1.position,
-        },
+        where: { id: entry2.id },
+        data: { position: temp2 },
       }),
     ]);
 
-    return {
-      success: true,
-    };
+    await prisma.$transaction([
+      prisma.queueEntry.update({
+        where: { id: entry1.id },
+        data: { position: entry2.position },
+      }),
+      prisma.queueEntry.update({
+        where: { id: entry2.id },
+        data: { position: entry1.position },
+      }),
+    ]);
+
+    return { success: true };
   }
 
   static async logAction(
