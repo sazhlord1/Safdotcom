@@ -8,40 +8,167 @@ interface SwapPopupProps {
   isOpen: boolean;
   onClose: () => void;
   request: SwapRequest;
-  mode: "respond" | "confirm";
-  onRespond?: (requestId: number, accepted: boolean) => void;
-  onConfirm?: (requestId: number, accepted: boolean) => void;
+  mode: "request" | "approve" | "confirm";
+  onSubmit?: (message: string) => void;
+  onApprove?: (offerId: number) => void;
+  onReject?: (offerId: number) => void;
+  onConfirm?: (offerId: number, accepted: boolean) => void;
 }
 
-export function SwapPopup({ isOpen, onClose, request, mode, onRespond, onConfirm }: SwapPopupProps) {
+export function SwapPopup({
+  isOpen,
+  onClose,
+  request,
+  mode,
+  onSubmit,
+  onApprove,
+  onReject,
+  onConfirm,
+}: SwapPopupProps) {
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const handleAction = async (accepted: boolean) => {
+  const handleSubmit = async () => {
+    if (!message.trim()) return;
     setLoading(true);
-    if (mode === "respond" && onRespond) {
-      await onRespond(request.id, accepted);
-    } else if (mode === "confirm" && onConfirm) {
-      await onConfirm(request.id, accepted);
-    }
+    await onSubmit?.(message.trim());
+    setLoading(false);
+    setMessage("");
+    onClose();
+  };
+
+  const handleApprove = async () => {
+    setLoading(true);
+    await onApprove?.(request.id);
     setLoading(false);
     onClose();
   };
 
-  if (mode === "confirm") {
-    // Requester confirmation view
-    const offerOwner = request.swapOffer.queueEntry.user;
+  const handleReject = async () => {
+    setLoading(true);
+    await onReject?.(request.id);
+    setLoading(false);
+    onClose();
+  };
+
+  const handleConfirm = async (accepted: boolean) => {
+    setLoading(true);
+    await onConfirm?.(request.id, accepted);
+    setLoading(false);
+    onClose();
+  };
+
+  // Mode: Create new swap request
+  if (mode === "request") {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="تأیید معاوضه">
+      <Modal isOpen={isOpen} onClose={onClose} title="ارسال درخواست معاوضه">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              پیام معاوضه
+            </label>
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="مثلاً: در ازای یک قهوه"
+              className="w-full px-4 py-3 rounded-xl border-0 text-base"
+              style={{
+                backgroundColor: "var(--tg-theme-secondary-bg-color)",
+                color: "var(--tg-theme-text-color)",
+              }}
+              maxLength={100}
+            />
+            <p className="text-xs mt-1" style={{ color: "var(--tg-theme-hint-color)" }}>
+              {message.length}/100
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={onClose} variant="secondary">
+              لغو
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!message.trim()}
+              loading={loading}
+            >
+              ارسال درخواست
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  // Mode: Approve/Reject (for person ahead)
+  if (mode === "approve") {
+    const requester = request.queueEntry.user;
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title="درخواست معاوضه">
         <div className="flex flex-col items-center gap-4">
           <Avatar
-            src={offerOwner.photoUrl}
-            name={`${offerOwner.firstName} ${offerOwner.lastName || ""}`}
+            src={requester.photoUrl}
+            name={`${requester.firstName} ${requester.lastName || ""}`}
             size="lg"
           />
 
           <div className="text-center">
             <p className="font-semibold">
-              {offerOwner.firstName} {offerOwner.lastName}
+              {requester.firstName} {requester.lastName}
+            </p>
+            <p className="text-sm mt-1" style={{ color: "var(--tg-theme-hint-color)" }}>
+              درخواست معاوضه دارد
+            </p>
+          </div>
+
+          {request.message && (
+            <div
+              className="w-full p-3 rounded-xl text-center"
+              style={{ backgroundColor: "var(--tg-theme-secondary-bg-color)" }}
+            >
+              <p className="text-sm font-medium">{request.message}</p>
+            </div>
+          )}
+
+          <div className="flex gap-2 w-full">
+            <Button
+              onClick={handleReject}
+              variant="danger"
+              disabled={loading}
+            >
+              رد
+            </Button>
+            <Button
+              onClick={handleApprove}
+              variant="primary"
+              disabled={loading}
+            >
+              تأیید
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  // Mode: Final confirmation (for requester)
+  if (mode === "confirm") {
+    const approver = request.approvedByQueueEntry?.user;
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title="تأیید نهایی معاوضه">
+        <div className="flex flex-col items-center gap-4">
+          {approver && (
+            <Avatar
+              src={approver.photoUrl}
+              name={`${approver.firstName} ${approver.lastName || ""}`}
+              size="lg"
+            />
+          )}
+
+          <div className="text-center">
+            <p className="font-semibold">
+              {approver?.firstName} {approver?.lastName}
             </p>
             <p className="text-sm mt-1" style={{ color: "var(--tg-theme-hint-color)" }}>
               درخواست معاوضه شما را تأیید کرد
@@ -54,25 +181,25 @@ export function SwapPopup({ isOpen, onClose, request, mode, onRespond, onConfirm
           >
             <p className="text-sm">
               آیا می‌خواهید جای خود را با{" "}
-              <span className="font-semibold">{offerOwner.firstName}</span>{" "}
+              <span className="font-semibold">{approver?.firstName}</span>{" "}
               عوض کنید؟
             </p>
           </div>
 
           <div className="flex gap-2 w-full">
             <Button
-              onClick={() => handleAction(false)}
+              onClick={() => handleConfirm(false)}
               variant="danger"
               disabled={loading}
             >
               رد
             </Button>
             <Button
-              onClick={() => handleAction(true)}
+              onClick={() => handleConfirm(true)}
               variant="primary"
               disabled={loading}
             >
-              تأیید
+              تأیید نهایی
             </Button>
           </div>
         </div>
@@ -80,51 +207,5 @@ export function SwapPopup({ isOpen, onClose, request, mode, onRespond, onConfirm
     );
   }
 
-  // Offer owner respond view
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="درخواست معاوضه">
-      <div className="flex flex-col items-center gap-4">
-        <Avatar
-          src={request.requester.photoUrl}
-          name={`${request.requester.firstName} ${request.requester.lastName || ""}`}
-          size="lg"
-        />
-
-        <div className="text-center">
-          <p className="font-semibold">
-            {request.requester.firstName} {request.requester.lastName}
-          </p>
-          <p className="text-sm mt-1" style={{ color: "var(--tg-theme-hint-color)" }}>
-            می‌خواهد با شما معاوضه کند
-          </p>
-        </div>
-
-        {request.message && (
-          <div
-            className="w-full p-3 rounded-xl text-center"
-            style={{ backgroundColor: "var(--tg-theme-secondary-bg-color)" }}
-          >
-            <p className="text-sm font-medium">{request.message}</p>
-          </div>
-        )}
-
-        <div className="flex gap-2 w-full">
-          <Button
-            onClick={() => handleAction(false)}
-            variant="danger"
-            disabled={loading}
-          >
-            رد
-          </Button>
-          <Button
-            onClick={() => handleAction(true)}
-            variant="primary"
-            disabled={loading}
-          >
-            تأیید
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
+  return null;
 }

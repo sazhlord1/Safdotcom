@@ -1,17 +1,16 @@
 import { motion } from "framer-motion";
 import { Avatar } from "../ui/Avatar";
 import { Badge } from "../ui/Badge";
-import { SwapOfferCard } from "../swap/SwapOfferCard";
-import { QueueEntry, SwapOffer } from "../../api/types";
+import { QueueEntry, SwapRequest } from "../../api/types";
 import { toPersianDigits } from "../../utils/persianDigits";
 
 interface QueueCardProps {
   entry: QueueEntry;
   position: number;
   isCurrentUser: boolean;
-  swapOffer?: SwapOffer | null;
-  canRequestSwap?: boolean;
-  onRequestSwap?: (offerId: number) => void;
+  swapRequest?: SwapRequest | null;
+  canApprove?: boolean;
+  onApprove?: (offerId: number) => void;
   onComplete?: () => void;
   onLeave?: () => void;
 }
@@ -20,9 +19,9 @@ export function QueueCard({
   entry,
   position,
   isCurrentUser,
-  swapOffer,
-  canRequestSwap,
-  onRequestSwap,
+  swapRequest,
+  canApprove,
+  onApprove,
   onComplete,
   onLeave,
 }: QueueCardProps) {
@@ -85,14 +84,29 @@ export function QueueCard({
         <Badge variant={status.variant}>{status.label}</Badge>
       </div>
 
-      {/* Swap offer below the card */}
-      {swapOffer && (
+      {/* Swap request displayed next to name */}
+      {swapRequest && (
         <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--tg-theme-hint-color)" }}>
-          <SwapOfferCard
-            offer={swapOffer}
-            canRequest={canRequestSwap}
-            onRequest={() => onRequestSwap?.(swapOffer.id)}
-          />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🔄</span>
+              <span className="text-sm font-medium" style={{ color: "var(--tg-theme-accent-text-color)" }}>
+                {swapRequest.message}
+              </span>
+              {swapRequest.status === "APPROVED" && (
+                <Badge variant="info">تأیید شده</Badge>
+              )}
+            </div>
+
+            {canApprove && swapRequest.status === "PENDING" && (
+              <button
+                onClick={() => onApprove?.(swapRequest.id)}
+                className="btn-primary !w-auto text-xs"
+              >
+                تأیید
+              </button>
+            )}
+          </div>
         </div>
       )}
 

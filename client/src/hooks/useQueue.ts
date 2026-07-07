@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "../api/client";
-import { QueueState, SwapOffer, SwapRequest } from "../api/types";
+import { QueueState } from "../api/types";
 import { useSocket } from "./useSocket";
 
 export function useQueue(token: string | null) {
@@ -34,42 +34,14 @@ export function useQueue(token: string | null) {
   useEffect(() => {
     if (!socket) return;
 
-    const handleQueueUpdated = (state: QueueState) => {
-      setQueueState((prev) => {
-        if (!prev) return state;
-        return {
-          ...state,
-          myEntry: prev.myEntry,
-          pendingRequests: prev.pendingRequests,
-          approvedRequests: prev.approvedRequests,
-          swapOffers: prev.swapOffers ?? [],
-        };
-      });
-      setLoading(false);
-    };
-
-    const handleSwapNewOffer = () => {
-      fetchQueue();
-    };
-
-    const handleSwapRequestReceived = () => {
-      fetchQueue();
-    };
-
-    const handleSwapResponse = () => {
+    const handleQueueUpdated = () => {
       fetchQueue();
     };
 
     socket.on("queue:updated", handleQueueUpdated);
-    socket.on("swap:new-offer", handleSwapNewOffer);
-    socket.on("swap:request-received", handleSwapRequestReceived);
-    socket.on("swap:response", handleSwapResponse);
 
     return () => {
       socket.off("queue:updated", handleQueueUpdated);
-      socket.off("swap:new-offer", handleSwapNewOffer);
-      socket.off("swap:request-received", handleSwapRequestReceived);
-      socket.off("swap:response", handleSwapResponse);
     };
   }, [socket, fetchQueue]);
 
@@ -105,73 +77,73 @@ export function useQueue(token: string | null) {
   }, [fetchQueue]);
 
   // Swap actions
-  const createSwapOffer = useCallback(
+  const createSwapRequest = useCallback(
     async (message: string) => {
       try {
-        await api.post("/swap/offer", { message });
+        await api.post("/swap/request", { message });
         await fetchQueue();
         return { success: true };
       } catch (err: any) {
         return {
-          error: err.response?.data?.error || "خطا در ایجاد پیشنهاد",
+          error: err.response?.data?.error || "خطا در ایجاد درخواست",
         };
       }
     },
     [fetchQueue]
   );
 
-  const cancelSwapOffer = useCallback(
+  const cancelSwapRequest = useCallback(
     async (offerId: number) => {
       try {
-        await api.post("/swap/offer/cancel", { offerId });
+        await api.post("/swap/request/cancel", { offerId });
         await fetchQueue();
         return { success: true };
       } catch (err: any) {
-        return { error: err.response?.data?.error || "خطا در لغو پیشنهاد" };
+        return { error: err.response?.data?.error || "خطا در لغو درخواست" };
       }
     },
     [fetchQueue]
   );
 
-  const requestSwap = useCallback(
-    async (offerId: number, message?: string) => {
+  const approveSwapRequest = useCallback(
+    async (offerId: number) => {
       try {
-        await api.post("/swap/request", { offerId, message });
+        await api.post("/swap/approve", { offerId });
         await fetchQueue();
         return { success: true };
       } catch (err: any) {
         return {
-          error: err.response?.data?.error || "خطا در درخواست معاوضه",
+          error: err.response?.data?.error || "خطا در تأیید درخواست",
         };
       }
     },
     [fetchQueue]
   );
 
-  const respondToSwap = useCallback(
-    async (requestId: number, accepted: boolean) => {
+  const rejectSwapRequest = useCallback(
+    async (offerId: number) => {
       try {
-        await api.post("/swap/respond", { requestId, accepted });
+        await api.post("/swap/reject", { offerId });
         await fetchQueue();
         return { success: true };
       } catch (err: any) {
         return {
-          error: err.response?.data?.error || "خطا در پاسخ به معاوضه",
+          error: err.response?.data?.error || "خطا در رد درخواست",
         };
       }
     },
     [fetchQueue]
   );
 
-  const confirmSwap = useCallback(
-    async (requestId: number, accepted: boolean) => {
+  const confirmSwapRequest = useCallback(
+    async (offerId: number, accepted: boolean) => {
       try {
-        await api.post("/swap/confirm", { requestId, accepted });
+        await api.post("/swap/confirm", { offerId, accepted });
         await fetchQueue();
         return { success: true };
       } catch (err: any) {
         return {
-          error: err.response?.data?.error || "خطا در تأیید معاوضه",
+          error: err.response?.data?.error || "خطا در تأیید نهایی",
         };
       }
     },
@@ -187,10 +159,10 @@ export function useQueue(token: string | null) {
     joinQueue,
     completeHeating,
     leaveQueue,
-    createSwapOffer,
-    cancelSwapOffer,
-    requestSwap,
-    respondToSwap,
-    confirmSwap,
+    createSwapRequest,
+    cancelSwapRequest,
+    approveSwapRequest,
+    rejectSwapRequest,
+    confirmSwapRequest,
   };
 }

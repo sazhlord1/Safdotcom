@@ -12,9 +12,9 @@ function serializeBigInt(obj: any) {
   );
 }
 
-// Create a swap offer
+// Create a swap request (by person behind in queue)
 router.post(
-  "/offer",
+  "/request",
   authMiddleware,
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -25,59 +25,9 @@ router.post(
         return;
       }
 
-      const result = await SwapService.createOffer(
+      const result = await SwapService.createSwapRequest(
         req.user!.userId,
         message.trim()
-      );
-
-      if ("error" in result) {
-        res.status(400).json({ error: result.error });
-        return;
-      }
-
-      res.json(serializeBigInt({ offer: result.offer }));
-    } catch (error) {
-      console.error("Swap offer error:", error);
-      res.status(500).json({ error: "خطای سرور" });
-    }
-  }
-);
-
-// Cancel a swap offer
-router.post(
-  "/offer/cancel",
-  authMiddleware,
-  async (req: AuthenticatedRequest, res) => {
-    try {
-      const { offerId } = req.body;
-
-      const result = await SwapService.cancelOffer(req.user!.userId, offerId);
-
-      if ("error" in result) {
-        res.status(400).json({ error: result.error });
-        return;
-      }
-
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Swap cancel error:", error);
-      res.status(500).json({ error: "خطای سرور" });
-    }
-  }
-);
-
-// Request a swap
-router.post(
-  "/request",
-  authMiddleware,
-  async (req: AuthenticatedRequest, res) => {
-    try {
-      const { offerId, message } = req.body;
-
-      const result = await SwapService.requestSwap(
-        req.user!.userId,
-        offerId,
-        message
       );
 
       if ("error" in result) {
@@ -93,18 +43,43 @@ router.post(
   }
 );
 
-// Respond to a swap request
+// Cancel a swap request
 router.post(
-  "/respond",
+  "/request/cancel",
   authMiddleware,
   async (req: AuthenticatedRequest, res) => {
     try {
-      const { requestId, accepted } = req.body;
+      const { offerId } = req.body;
 
-      const result = await SwapService.respondToSwap(
+      const result = await SwapService.cancelSwapRequest(
         req.user!.userId,
-        requestId,
-        accepted
+        offerId
+      );
+
+      if ("error" in result) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Swap cancel error:", error);
+      res.status(500).json({ error: "خطای سرور" });
+    }
+  }
+);
+
+// Approve a swap request (by person ahead in queue)
+router.post(
+  "/approve",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { offerId } = req.body;
+
+      const result = await SwapService.approveSwapRequest(
+        req.user!.userId,
+        offerId
       );
 
       if ("error" in result) {
@@ -114,23 +89,49 @@ router.post(
 
       res.json(serializeBigInt(result));
     } catch (error) {
-      console.error("Swap respond error:", error);
+      console.error("Swap approve error:", error);
       res.status(500).json({ error: "خطای سرور" });
     }
   }
 );
 
-// Confirm or reject an approved swap (requester's final decision)
+// Reject a swap request (by person ahead in queue)
+router.post(
+  "/reject",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { offerId } = req.body;
+
+      const result = await SwapService.rejectSwapRequest(
+        req.user!.userId,
+        offerId
+      );
+
+      if ("error" in result) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Swap reject error:", error);
+      res.status(500).json({ error: "خطای سرور" });
+    }
+  }
+);
+
+// Final confirmation by requester
 router.post(
   "/confirm",
   authMiddleware,
   async (req: AuthenticatedRequest, res) => {
     try {
-      const { requestId, accepted } = req.body;
+      const { offerId, accepted } = req.body;
 
-      const result = await SwapService.confirmSwap(
+      const result = await SwapService.confirmSwapRequest(
         req.user!.userId,
-        requestId,
+        offerId,
         accepted
       );
 
@@ -142,6 +143,36 @@ router.post(
       res.json(result);
     } catch (error) {
       console.error("Swap confirm error:", error);
+      res.status(500).json({ error: "خطای سرور" });
+    }
+  }
+);
+
+// Get my swap requests
+router.get(
+  "/my-requests",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const requests = await SwapService.getMySwapRequests(req.user!.userId);
+      res.json(serializeBigInt(requests));
+    } catch (error) {
+      console.error("Get my requests error:", error);
+      res.status(500).json({ error: "خطای سرور" });
+    }
+  }
+);
+
+// Get requests I can approve
+router.get(
+  "/to-approve",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const requests = await SwapService.getRequestsToApprove(req.user!.userId);
+      res.json(serializeBigInt(requests));
+    } catch (error) {
+      console.error("Get to approve error:", error);
       res.status(500).json({ error: "خطای سرور" });
     }
   }

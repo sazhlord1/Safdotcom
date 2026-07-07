@@ -16,6 +16,7 @@ enum QueueStatus {
 
 enum SwapStatus {
   PENDING
+  APPROVED
   ACCEPTED
   REJECTED
   CANCELLED
@@ -59,7 +60,8 @@ model QueueEntry {
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  swapOffers SwapOffer[]
+  swapOffers            SwapOffer[] @relation("SwapOfferOwner")
+  approvedSwapOffers    SwapOffer[] @relation("ApprovedBy")
 
   @@unique([queueDate, position, microwaveId])
   @@index([queueDate, status])
@@ -75,7 +77,10 @@ model SwapOffer {
   updatedAt   DateTime   @updatedAt
 
   queueEntryId Int
-  queueEntry   QueueEntry @relation(fields: [queueEntryId], references: [id], onDelete: Cascade)
+  queueEntry   QueueEntry @relation("SwapOfferOwner", fields: [queueEntryId], references: [id], onDelete: Cascade)
+
+  approvedByQueueEntryId Int?
+  approvedByQueueEntry   QueueEntry? @relation("ApprovedBy", fields: [approvedByQueueEntryId], references: [id])
 
   requests SwapRequest[]
 

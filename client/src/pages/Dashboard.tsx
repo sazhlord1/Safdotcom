@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQueue } from "../hooks/useQueue";
 import { QueueStatus } from "../components/queue/QueueStatus";
 import { QueueList } from "../components/queue/QueueList";
-import { SwapOfferForm } from "../components/swap/SwapOfferForm";
 import { SwapPopup } from "../components/swap/SwapPopup";
 import { Button } from "../components/ui/Button";
 import { Spinner } from "../components/ui/Spinner";
@@ -25,11 +24,10 @@ export function Dashboard({ token, currentUserId }: DashboardProps) {
     joinQueue,
     completeHeating,
     leaveQueue,
-    createSwapOffer,
-    cancelSwapOffer,
-    requestSwap,
-    respondToSwap,
-    confirmSwap,
+    createSwapRequest,
+    approveSwapRequest,
+    rejectSwapRequest,
+    confirmSwapRequest,
   } = useQueue(token);
 
   const [toast, setToast] = useState<{
@@ -37,10 +35,9 @@ export function Dashboard({ token, currentUserId }: DashboardProps) {
     type: "success" | "error" | "info";
   } | null>(null);
 
-  const [showSwapForm, setShowSwapForm] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<SwapRequest | null>(null);
-  const [selectedApprovedRequest, setSelectedApprovedRequest] = useState<SwapRequest | null>(null);
-  const [requestPopupMode, setRequestPopupMode] = useState<"respond" | "confirm">("respond");
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [selectedForApproval, setSelectedForApproval] = useState<SwapRequest | null>(null);
+  const [selectedForConfirmation, setSelectedForConfirmation] = useState<SwapRequest | null>(null);
 
   const showToast = (message: string, type: "success" | "error" | "info") => {
     setToast({ message, type });
@@ -87,45 +84,35 @@ export function Dashboard({ token, currentUserId }: DashboardProps) {
     }
   };
 
-  const handleCreateOffer = async (message: string) => {
-    const result = await createSwapOffer(message);
+  const handleCreateRequest = async (message: string) => {
+    const result = await createSwapRequest(message);
     if (result.error) {
       showToast(result.error, "error");
     } else {
-      showToast("پیشنهاد معاوضه ایجاد شد", "success");
+      showToast("درخواست معاوضه ارسال شد", "success");
     }
   };
 
-  const handleRequestSwap = async (offerId: number) => {
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-      tg.showConfirm("آیا می‌خواهید درخواست معاوضه ارسال کنید؟", async (confirmed: boolean) => {
-        if (confirmed) {
-          const result = await requestSwap(offerId);
-          if (result.error) {
-            showToast(result.error, "error");
-          } else {
-            showToast("درخواست معاوضه ارسال شد", "success");
-          }
-        }
-      });
-    }
-  };
-
-  const handleRespondToSwap = async (requestId: number, accepted: boolean) => {
-    const result = await respondToSwap(requestId, accepted);
+  const handleApprove = async (offerId: number) => {
+    const result = await approveSwapRequest(offerId);
     if (result.error) {
       showToast(result.error, "error");
     } else {
-      showToast(
-        accepted ? "درخواست تأیید شد - منتظر تأیید نهایی" : "معاوضه رد شد",
-        accepted ? "success" : "info"
-      );
+      showToast("درخواست تأیید شد", "success");
     }
   };
 
-  const handleConfirmSwap = async (requestId: number, accepted: boolean) => {
-    const result = await confirmSwap(requestId, accepted);
+  const handleReject = async (offerId: number) => {
+    const result = await rejectSwapRequest(offerId);
+    if (result.error) {
+      showToast(result.error, "error");
+    } else {
+      showToast("درخواست رد شد", "info");
+    }
+  };
+
+  const handleConfirm = async (offerId: number, accepted: boolean) => {
+    const result = await confirmSwapRequest(offerId, accepted);
     if (result.error) {
       showToast(result.error, "error");
     } else {
@@ -156,7 +143,7 @@ export function Dashboard({ token, currentUserId }: DashboardProps) {
 
   if (!queueState) return null;
 
-  const { queue, queueOpen, queueCloseTime, myEntry, pendingRequests, approvedRequests } =
+  const { queue, queueOpen, queueCloseTime, myEntry, mySwapRequests, requestsToApprove } =
     queueState;
 
   // Split queue by microwave (only WAITING entries)
@@ -169,6 +156,16 @@ export function Dashboard({ token, currentUserId }: DashboardProps) {
 
   // Check if user has completed and can rejoin
   const canRejoin = myEntry && myEntry.status === "COMPLETED" && queueOpen;
+
+  // Check if user can create a swap request (position > 0 and no active request)
+  const canCreateRequest =
+    myEntry &&
+    myEntry.status === "WAITING" &&
+    myEntry.position > 0 &&
+    !mySwapRequests.some((r) => r.status === "PENDING" || r.status === "APPROVED");
+
+  // Find approved request awaiting confirmation
+  const approvedRequest = mySwapRequests.find((r) => r.status === "APPROVED");
 
   return (
     <div className="space-y-4 pb-4">
@@ -234,29 +231,49 @@ export function Dashboard({ token, currentUserId }: DashboardProps) {
         </div>
       )}
 
-      {/* Approved Requests - waiting for requester confirmation */}
-      {approvedRequests.length > 0 && (
+      {/* Approved request awaiting my confirmation */}
+      {approvedRequest && (
+        <div className="glass-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">
+                {approvedRequest.approvedByQueueEntry?.user.firstName}{" "}
+                {approvedRequest.approvedByQueueEntry?.user.lastName}
+              </p>
+              <p className="text-sm" style={{ color: "var(--tg-theme-hint-color)" }}>
+                درخواست معاوضه شما را تأیید کرد
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedForConfirmation(approvedRequest)}
+              className="btn-primary !w-auto text-sm"
+            >
+              تأیید نهایی
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Requests I can approve */}
+      {requestsToApprove.length > 0 && (
         <div className="space-y-2">
-          <h3 className="font-bold">تأیید نهایی معاوضه</h3>
-          {approvedRequests.map((req) => (
+          <h3 className="font-bold">درخواست‌های معاوضه</h3>
+          {requestsToApprove.map((req) => (
             <div key={req.id} className="glass-card">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">
-                    {req.swapOffer.queueEntry.user.firstName} {req.swapOffer.queueEntry.user.lastName}
+                    {req.queueEntry.user.firstName} {req.queueEntry.user.lastName}
                   </p>
                   <p className="text-sm" style={{ color: "var(--tg-theme-hint-color)" }}>
-                    درخواست شما را تأیید کرد
+                    {req.message}
                   </p>
                 </div>
                 <button
-                  onClick={() => {
-                    setSelectedApprovedRequest(req);
-                    setRequestPopupMode("confirm");
-                  }}
+                  onClick={() => setSelectedForApproval(req)}
                   className="btn-primary !w-auto text-sm"
                 >
-                  تأیید نهایی
+                  مشاهده
                 </button>
               </div>
             </div>
@@ -264,45 +281,13 @@ export function Dashboard({ token, currentUserId }: DashboardProps) {
         </div>
       )}
 
-      {/* Pending Swap Requests (from others) */}
-      {pendingRequests.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="font-bold">{fa.pendingSwaps}</h3>
-          {pendingRequests.map((req) => (
-            <div key={req.id} className="glass-card">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">
-                    {req.requester.firstName} {req.requester.lastName}
-                  </p>
-                  <p className="text-sm" style={{ color: "var(--tg-theme-hint-color)" }}>
-                    {req.status === "APPROVED" ? "منتظر تأیید نهایی" : "درخواست معاوضه با شما"}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setSelectedRequest(req);
-                      setRequestPopupMode("respond");
-                    }}
-                    className="btn-primary !w-auto text-sm"
-                  >
-                    مشاهده
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Create Swap Offer Button */}
-      {myEntry && myEntry.status === "WAITING" && !(queueState.swapOffers?.some(o => o.queueEntry.id === myEntry.id)) && (
+      {/* Create Swap Request Button */}
+      {canCreateRequest && (
         <Button
-          onClick={() => setShowSwapForm(true)}
+          onClick={() => setShowRequestForm(true)}
           variant="secondary"
         >
-          {fa.createSwapOffer}
+          ارسال درخواست معاوضه
         </Button>
       )}
 
@@ -314,8 +299,12 @@ export function Dashboard({ token, currentUserId }: DashboardProps) {
           <QueueList
             entries={microwave1Queue}
             currentUserId={currentUserId}
-            swapOffers={queueState.swapOffers}
-            onRequestSwap={handleRequestSwap}
+            swapRequests={queueState.swapRequests}
+            myEntry={myEntry}
+            onApprove={(offerId) => {
+              const req = requestsToApprove.find((r) => r.id === offerId);
+              if (req) setSelectedForApproval(req);
+            }}
             onComplete={handleComplete}
             onLeave={handleLeave}
           />
@@ -327,40 +316,47 @@ export function Dashboard({ token, currentUserId }: DashboardProps) {
           <QueueList
             entries={microwave2Queue}
             currentUserId={currentUserId}
-            swapOffers={queueState.swapOffers}
-            onRequestSwap={handleRequestSwap}
+            swapRequests={queueState.swapRequests}
+            myEntry={myEntry}
+            onApprove={(offerId) => {
+              const req = requestsToApprove.find((r) => r.id === offerId);
+              if (req) setSelectedForApproval(req);
+            }}
             onComplete={handleComplete}
             onLeave={handleLeave}
           />
         </div>
       </div>
 
-      {/* Swap Offer Form Modal */}
-      <SwapOfferForm
-        isOpen={showSwapForm}
-        onClose={() => setShowSwapForm(false)}
-        onSubmit={handleCreateOffer}
+      {/* Create Swap Request Modal */}
+      <SwapPopup
+        isOpen={showRequestForm}
+        onClose={() => setShowRequestForm(false)}
+        request={{} as SwapRequest}
+        mode="request"
+        onSubmit={handleCreateRequest}
       />
 
-      {/* Swap Request Popup (respond mode) */}
-      {selectedRequest && (
+      {/* Approve/Reject Modal */}
+      {selectedForApproval && (
         <SwapPopup
-          isOpen={!!selectedRequest}
-          onClose={() => setSelectedRequest(null)}
-          request={selectedRequest}
-          mode="respond"
-          onRespond={handleRespondToSwap}
+          isOpen={!!selectedForApproval}
+          onClose={() => setSelectedForApproval(null)}
+          request={selectedForApproval}
+          mode="approve"
+          onApprove={handleApprove}
+          onReject={handleReject}
         />
       )}
 
-      {/* Swap Confirmation Popup (confirm mode) */}
-      {selectedApprovedRequest && (
+      {/* Final Confirmation Modal */}
+      {selectedForConfirmation && (
         <SwapPopup
-          isOpen={!!selectedApprovedRequest}
-          onClose={() => setSelectedApprovedRequest(null)}
-          request={selectedApprovedRequest}
+          isOpen={!!selectedForConfirmation}
+          onClose={() => setSelectedForConfirmation(null)}
+          request={selectedForConfirmation}
           mode="confirm"
-          onConfirm={handleConfirmSwap}
+          onConfirm={handleConfirm}
         />
       )}
 

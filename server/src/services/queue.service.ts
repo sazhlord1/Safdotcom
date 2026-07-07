@@ -115,6 +115,9 @@ export class QueueService {
       where: {
         queueDate: today,
         microwaveId,
+        status: {
+          in: ["WAITING", "ACTIVE"],
+        },
       },
       orderBy: {
         position: "desc",

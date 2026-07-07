@@ -16,26 +16,16 @@ export interface QueueEntry {
   joinedAt: string;
   startedAt: string | null;
   completedAt: string | null;
-  swapMessage: string | null;
   user: QueueUser;
-}
-
-export interface SwapOffer {
-  id: number;
-  message: string;
-  status: "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
-  createdAt: string;
-  queueEntry: QueueEntry;
-  requests: SwapRequest[];
 }
 
 export interface SwapRequest {
   id: number;
-  status: "PENDING" | "APPROVED" | "ACCEPTED" | "REJECTED";
-  message: string | null;
+  message: string;
+  status: "PENDING" | "APPROVED" | "ACCEPTED" | "REJECTED" | "CANCELLED";
   createdAt: string;
-  requester: QueueUser;
-  swapOffer: SwapOffer;
+  queueEntry: QueueEntry;
+  approvedByQueueEntry: QueueEntry | null;
 }
 
 export interface QueueState {
@@ -44,9 +34,9 @@ export interface QueueState {
   queueCloseTime: string;
   now: string;
   myEntry: QueueEntry | null;
-  swapOffers: SwapOffer[];
-  pendingRequests: SwapRequest[];
-  approvedRequests: SwapRequest[];
+  swapRequests: SwapRequest[];
+  mySwapRequests: SwapRequest[];
+  requestsToApprove: SwapRequest[];
 }
 
 export interface AdminDashboard {

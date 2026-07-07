@@ -18,15 +18,15 @@ router.get("/today", authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const queueState = await QueueService.getTodayQueue();
 
-    const swapOffers = await SwapService.getActiveOffers(
+    const swapRequests = await SwapService.getSwapRequestsForQueue(
       QueueService.getTodayDate()
     );
 
-    const pendingRequests = await SwapService.getPendingRequests(
+    const mySwapRequests = await SwapService.getMySwapRequests(
       req.user!.userId
     );
 
-    const approvedRequests = await SwapService.getApprovedRequestsForRequester(
+    const requestsToApprove = await SwapService.getRequestsToApprove(
       req.user!.userId
     );
 
@@ -38,9 +38,9 @@ router.get("/today", authMiddleware, async (req: AuthenticatedRequest, res) => {
       serializeBigInt({
         ...queueState,
         myEntry: myEntry || null,
-        swapOffers,
-        pendingRequests,
-        approvedRequests,
+        swapRequests,
+        mySwapRequests,
+        requestsToApprove,
       })
     );
   } catch (error) {

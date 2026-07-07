@@ -1,8 +1,8 @@
 import { Button } from "../ui/Button";
-import { SwapOffer } from "../../api/types";
+import { SwapRequest } from "../../api/types";
 
 interface SwapOfferCardProps {
-  offer: SwapOffer;
+  offer: SwapRequest;
   canRequest?: boolean;
   onRequest?: () => void;
 }

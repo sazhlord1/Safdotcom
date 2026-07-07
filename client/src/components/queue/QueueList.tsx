@@ -1,12 +1,13 @@
 import { AnimatePresence } from "framer-motion";
 import { QueueCard } from "./QueueCard";
-import { QueueEntry, SwapOffer } from "../../api/types";
+import { QueueEntry, SwapRequest } from "../../api/types";
 
 interface QueueListProps {
   entries: QueueEntry[];
   currentUserId?: number;
-  swapOffers: SwapOffer[];
-  onRequestSwap?: (offerId: number) => void;
+  swapRequests: SwapRequest[];
+  myEntry: QueueEntry | null;
+  onApprove?: (offerId: number) => void;
   onComplete?: () => void;
   onLeave?: () => void;
 }
@@ -14,8 +15,9 @@ interface QueueListProps {
 export function QueueList({
   entries,
   currentUserId,
-  swapOffers,
-  onRequestSwap,
+  swapRequests,
+  myEntry,
+  onApprove,
   onComplete,
   onLeave,
 }: QueueListProps) {
@@ -27,10 +29,19 @@ export function QueueList({
     <div className="space-y-3">
       <AnimatePresence mode="popLayout">
         {activeEntries.map((entry) => {
-          const swapOffer = swapOffers.find(
-            (o) => o.queueEntry.id === entry.id && o.status === "PENDING"
+          const swapRequest = swapRequests.find(
+            (r) => r.queueEntry.id === entry.id && r.status !== "CANCELLED" && r.status !== "REJECTED"
           );
           const isCurrentUser = entry.user.id === currentUserId;
+
+          // Can approve if: not current user, requester is behind me, and I'm ahead
+          const canApprove =
+            !isCurrentUser &&
+            myEntry &&
+            entry.status === "WAITING" &&
+            swapRequest?.status === "PENDING" &&
+            entry.microwaveId === myEntry.microwaveId &&
+            entry.position > myEntry.position;
 
           return (
             <QueueCard
@@ -38,13 +49,9 @@ export function QueueList({
               entry={entry}
               position={entry.position}
               isCurrentUser={isCurrentUser}
-              swapOffer={swapOffer}
-              canRequestSwap={
-                !isCurrentUser &&
-                entry.status === "WAITING" &&
-                !!swapOffer
-              }
-              onRequestSwap={onRequestSwap}
+              swapRequest={swapRequest}
+              canApprove={canApprove || undefined}
+              onApprove={onApprove}
               onComplete={onComplete}
               onLeave={onLeave}
             />
